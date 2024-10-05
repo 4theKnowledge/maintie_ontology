@@ -1,4 +1,3 @@
-# from owlready2 import *
 import owlready2
 from owlready2 import (
     types,
@@ -8,8 +7,10 @@ from owlready2 import (
     ObjectProperty,
     PropertyChain,
 )
-import types
-from typing import List, Tuple
+# import types
+from pathlib import Path
+import os
+from typing import List, Tuple, Literal
 from tqdm import tqdm
 from collections import defaultdict
 import pandas as pd
@@ -21,30 +22,36 @@ import re
 from collections import Counter
 
 from utils import (
-    ENTITY_CLASSES,
-    RELATION_CLASSES,
-    RELATION_PATTERN_MAPPING,
     find_individual_by_label,
     generate_short_id,
     flatten_entity_classes,
-    child_to_parent_class_name,
-    PROPERTY_CHAIN_AXIOMS,
 )
+from data import (
+    ENTITY_CLASSES,
+    RELATION_CLASSES,
+    RELATION_PATTERN_MAPPING,
+    PROPERTY_CHAIN_AXIOMS,
+    child_to_parent_class_name,
+)
+
+from config import config
 
 owlready2.JAVA_EXE = r"C:\Program Files\Java\jre-1.8\bin\java.exe"
 
 ENTITY_CLASS_MAPPING = flatten_entity_classes(ENTITY_CLASSES)
 
-CREATE_FUNCTION_STATES = True
-CONVERT_UNDESIRABLE_STATE_TO_INDETERMINATE_STATE = True
-
 
 def load_triplets(file_path: str) -> List[tuple]:
+    """Loads triplets from a file and returns them as a list of tuples."""
     df = pd.read_csv(file_path, sep="|", dtype="str", quoting=csv.QUOTE_NONE)
     return [tuple(list(d.values())) for d in df.to_dict(orient="records")]
 
 
-def to_camel_case(text):
+def to_camel_case(text: str) -> str:
+    """Converts a text string to camel case.
+
+    Example: "centrifugal pump" -> "CentrifugalPump"
+    """
     try:
         words = text.split()
         if len(words) == 0:
@@ -57,11 +64,12 @@ def to_camel_case(text):
 
         return camel_case
     except:
-        raise Exception('Unable to convert text to camel case.')
+        raise Exception(f"Failed to convert {text} to camel case")
 
 
 # Helper function to create classes recursively
-def create_classes(onto, class_data, parent=None):
+def create_classes(onto: owlready2.namespace.Ontology, class_data: dict, parent=None):
+    """Creates classes in the ontology based on the given class data."""
     class_name = class_data["onto_name"]
     if parent:
         class_name = class_name  # f"{parent.__name__}.{class_name}"
@@ -78,7 +86,7 @@ def create_classes(onto, class_data, parent=None):
         create_classes(onto, child_data, new_class)
 
 
-def is_rdf_class_name_compliant(class_name):
+def is_rdf_class_name_compliant(class_name: str) -> bool:
     """
     Check if the given string is compliant with RDF class naming conventions.
 
@@ -98,18 +106,19 @@ def is_rdf_class_name_compliant(class_name):
     return class_name[0].isupper() and all(x.isalnum() or x == "_" for x in class_name)
 
 
-def create_ontology_base_classes(onto):
+def create_ontology_base_classes(onto: owlready2.namespace.Ontology) -> None:
+    """Creates base classes in the ontology."""
     # Iterate through ENTITY_CLASSES and create classes
     for class_data in ENTITY_CLASSES:
         create_classes(onto, class_data)
     # AllDisjoint([onto[entity_name] for entity_name in ENTITY_CLASSES.values()])
 
 
-def create_ontology_object_properties(onto):
-    # Create properties
+def create_ontology_object_properties(onto: owlready2.namespace.Ontology) -> None:
+    """Creates object properties in the ontology."""
     with onto:
         for relation, details in RELATION_CLASSES.items():
-            print(f"Creating object property: {relation}")
+            # print(f"Creating object property: {relation}")
             try:
                 parent_class = (
                     ObjectProperty
@@ -128,17 +137,16 @@ def create_ontology_object_properties(onto):
                 if "inverse_of" in details:
                     NewProp.inverse_property = onto[details["inverse_of"]]
             except:
-                print("failed to create object property")
-                import IPython
-
-                IPython.embed()
-                exit(1)
+                raise Exception(f"Failed to create object property: {relation}")
 
     # AllDisjoint([onto[relation] for relation in RELATION_CLASSES.keys()])
 
 
 # Function to populate the ontology with individuals
-def populate_onto(onto, triplets):
+def populate_onto(
+    onto: owlready2.namespace.Ontology, triplets: List[Tuple[str, str, str, str, str]]
+) -> None:
+    """Populates the ontology with individuals based on the given triplets."""
     with onto:
         for head, head_type, rel_type, tail, tail_type in tqdm(triplets):
             head_class = onto[to_camel_case(head)]  # ENTITY_CLASS_MAPPING[head_type]]
@@ -172,10 +180,15 @@ def populate_onto(onto, triplets):
                     relation.append(tail_individual)
             else:
                 # Handle the case where the property is not defined
-                print(f"The property {rel_type} is not defined in the ontology.")
+                print(
+                    f"The property {rel_type} is not defined in the ontology. Skipping."
+                )
 
 
-def remove_circular_references(triples):
+def remove_circular_references(
+    triples: List[Tuple[str, str, str, str, str]]
+) -> List[Tuple[str, str, str, str, str]]:
+    """Removes circular references from the given list of triples."""
     parent_to_children = defaultdict(dict)
     child_to_parents = defaultdict(dict)
 
@@ -205,7 +218,10 @@ def remove_circular_references(triples):
     return cleaned_triples
 
 
-def build_hierarchy(triples, lowercase: bool = True):
+def build_hierarchy(
+    triples: List[Tuple[str, str, str, str, str]], lowercase: bool = True
+) -> dict:
+    """Builds a hierarchy from the given list of triples."""
     temp_hierarchy = defaultdict(set)
     all_children = set()
 
@@ -238,19 +254,20 @@ def build_hierarchy(triples, lowercase: bool = True):
     return hierarchy
 
 
-def stringify_keys(d):
+def stringify_keys(d: dict) -> dict:
     """Recursively convert tuple keys to strings in a dictionary."""
     if not isinstance(d, dict):
         return d
     return {str(key): stringify_keys(value) for key, value in d.items()}
 
 
-def print_hierarchy_as_json(hierarchy):
+def print_hierarchy_as_json(hierarchy: dict) -> None:
+    """Prints the hierarchy as a JSON object."""
     stringified_hierarchy = stringify_keys(hierarchy)
     print(json.dumps(stringified_hierarchy, indent=4))
 
 
-def print_hierarchy_prettified(hierarchy, node, indent=0):
+def print_hierarchy_prettified(hierarchy: dict, node: tuple, indent: int = 0):
     """
     Recursively prints the hierarchy in a prettified manner.
 
@@ -268,12 +285,17 @@ def print_hierarchy_prettified(hierarchy, node, indent=0):
             print_hierarchy_prettified(hierarchy[node], child, indent + 4)
 
 
-def create_class(parent_class, subclass_name, onto):
-    # Create a new in the ontology
+def create_class(
+    parent_class: owlready2.namespace.Ontology, subclass_name: str
+) -> None:
+    """Creates a new class in the ontology."""
     subclass = types.new_class(subclass_name, (parent_class,))
 
 
-def traverse_hierarchy_create_classes(onto, hierarchy, level=0, parent=None):
+def traverse_hierarchy_create_classes(
+    onto: owlready2.namespace.Ontology, hierarchy: dict, level: int = 0, parent=None
+):
+    """Traverses the hierarchy and creates classes in the ontology."""
     for node, children in hierarchy.items():
         try:
             # Check if the current node is at the top level
@@ -309,23 +331,30 @@ def traverse_hierarchy_create_classes(onto, hierarchy, level=0, parent=None):
             pass
 
 
-def convert_undesirable_to_indeterminate_state(entity: tuple):
+def convert_undesirable_to_indeterminate_state(entity: tuple) -> tuple:
+    """Converts an undesirable state to an indeterminate state."""
     if "undesirable" in entity[1]:
         return (entity[0], "<indeterminate state>")
     return entity
 
 
-def sanitize_state(entity: tuple):
+def sanitize_state(entity: tuple) -> tuple:
+    """Sanitizes the state entity."""
     if "state" in entity[1]:
-        if CONVERT_UNDESIRABLE_STATE_TO_INDETERMINATE_STATE:
+        if config.CONVERT_UNDESIRABLE_STATE_TO_INDETERMINATE_STATE:
             return convert_undesirable_to_indeterminate_state(entity)
     return entity
 
 
-def populate_onto_from_triple_docs(onto, docs, create_functional_states: bool = False):
+def populate_onto_from_triple_docs(
+    onto: owlready2.namespace.Ontology,
+    docs: List[dict],
+    create_functional_states: bool = False,
+) -> None:
+    """Populates the ontology with individuals based on the given triple documents."""
     sanitize_state = lambda x: x.replace(
         "undesirable",
-        f'{"indeterminate" if CONVERT_UNDESIRABLE_STATE_TO_INDETERMINATE_STATE else "undesirable"}',
+        f'{"indeterminate" if config.CONVERT_UNDESIRABLE_STATE_TO_INDETERMINATE_STATE else "undesirable"}',
     )
 
     with onto:
@@ -488,7 +517,7 @@ def create_populate_onto(name, onto, triplets, docs):
         traverse_hierarchy_create_classes(onto, ontology_hierarchy)
 
     populate_onto_from_triple_docs(
-        onto, docs=docs, create_functional_states=CREATE_FUNCTION_STATES
+        onto, docs=docs, create_functional_states=config.CREATE_FUNCTION_STATES
     )
 
     # with onto:
@@ -503,6 +532,23 @@ def create_populate_onto(name, onto, triplets, docs):
 
     onto.save(file=name)
 
+
+def create_ontology(type: Literal['all', 'maintie_gold']):
+
+    file_path = Path(f"./outputs/{type}.owl")
+
+    # Create file in './outputs' directory if it doesn't already exist
+    if not file_path.exists():
+        # Create the 'outputs' directory if it doesn't exist
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create the file
+        file_path.touch()  # Creates an empty file
+
+    if type == 'all':
+        create_maintkb_ontology()
+    elif type == 'maintie_gold':
+        create_ontology_from_annotations()
 
 def create_maintkb_ontology():
     """Creates ontology classes and populates from large automatically extracted maintenance corpus"""
@@ -529,263 +575,12 @@ def create_maintkb_ontology():
         docs=mwo_preds,
     )
 
-
-def create_test_ontology():
-    """Creates ontology classes and populates with limited set of individuals for testing"""
-
-    print(f"TEST_MODE")
-    TRIPLET_FILE_PATH = f"./maintkb_test.psv"
-    ONTOLOGY_NAME = f"maintkb_test.owl"
-    onto = get_ontology(f"file://{ONTOLOGY_NAME}")
-
-    TEST_TRIPLETS = [
-        (
-            "requires",
-            "<undesirable state>",
-            "has patient",
-            "replace",
-            "<replace>",
-            1,
-        ),
-        # (
-        #     "oil centrifugal pump",
-        #     "<physical object>",
-        #     "is a",
-        #     "centrifugal pump",
-        #     "<physical object>",
-        #     1,
-        # ),
-        # ("piston pump", "<physical object>", "is a", "pump", "<physical object>", 1),
-        # (
-        #     "centrifugal pump",
-        #     "<physical object>",
-        #     "is a",
-        #     "pump",
-        #     "<physical object>",
-        #     1,
-        # ),
-        # (
-        #     "lube centrifugal pump",
-        #     "<physical object>",
-        #     "is a",
-        #     "centrifugal pump",
-        #     "<physical object>",
-        #     1,
-        # ),
-        # ("oil cap", "<physical object>", "is a", "cap", "<physical object>", 1),
-        # ("replace", "<replace>", "has patient", "cap", "<physical object>", 1),
-        # ("replace", "<replace>", "has patient", "pump", "<physical object>", 1),
-        # ("adjust", "<adjust>", "has patient", "pump", "<physical object>", 1),
-        # ("adjustment", "<adjust>", "has patient", "pump", "<physical object>", 1),
-        # ("replace", "<replace>", "has agent", "technician", "<physical object>", 1),
-        # ("replace", "<replace>", "has patient", "bolt", "<physical object>", 1),
-    ]
-
-    TEST_TRIPLETS_V2 = [
-        (
-            "centrifugal pump",
-            "<physical object>",
-            "is a",
-            "pump",
-            "<physical object>",
-            1,
-        ),
-        (
-            "oil centrifugal pump",
-            "<physical object>",
-            "is a",
-            "centrifugal pump",
-            "<physical object>",
-            5,
-        ),
-        (
-            "centrifugal pump",
-            "<physical object>",
-            "is a",
-            "oil centrifugal pump",
-            "<physical object>",
-            1,
-        ),
-    ]
-
-    TEST_DOCS = [
-        {
-            "input": "pump requires replacing",
-            "triples": [
-                {
-                    "head": "requires",
-                    "head_type": "<undesirable state>",
-                    "relation": "has patient",
-                    "tail": "replacing",
-                    "tail_type": "<replace>",
-                },
-                {
-                    "head": "requires",
-                    "head_type": "<undesirable state>",
-                    "relation": "has agent",
-                    "tail": "pump",
-                    "tail_type": "<physical object>",
-                },
-            ],
-        },
-        # {
-        #     "input": "replace cap",
-        #     "triples": [
-        #         {
-        #             "head": "replace",
-        #             "head_type": "<replace>",
-        #             "relation": "has patient",
-        #             "tail": "cap",
-        #             "tail_type": "<physical object>",
-        #         }
-        #     ],
-        # },
-        # {
-        #     "input": "pump replacement",
-        #     "triples": [
-        #         {
-        #             "head": "replacement",
-        #             "head_type": "<replace>",
-        #             "relation": "has patient",
-        #             "tail": "pump",
-        #             "tail_type": "<physical object>",
-        #         },
-        #     ],
-        # },
-        # {
-        #     "input": "technician adjust pump",
-        #     "triples": [
-        #         {
-        #             "head": "adjust",
-        #             "head_type": "<adjust>",
-        #             "relation": "has patient",
-        #             "tail": "pump",
-        #             "tail_type": "<physical object>",
-        #         },
-        #         {
-        #             "head": "adjust",
-        #             "head_type": "<adjust>",
-        #             "relation": "has agent",
-        #             "tail": "technician",
-        #             "tail_type": "<physical object>",
-        #         },
-        #     ],
-        # },
-        # {
-        #     "input": "centrifugal pump adjustment",
-        #     "triples": [
-        #         {
-        #             "head": "adjustment",
-        #             "head_type": "<adjust>",
-        #             "relation": "has patient",
-        #             "tail": "centrifugal pump",
-        #             "tail_type": "<physical object>",
-        #         },
-        #         {
-        #             "head": "centrifugal pump",
-        #             "head_type": "<physical object>",
-        #             "relation": "is a",
-        #             "tail": "pump",
-        #             "tail_type": "<physical object>",
-        #         },
-        #     ],
-        # },
-        # {
-        #     "input": "replace pump bolt",
-        #     "triples": [
-        #         {
-        #             "head": "replace",
-        #             "head_type": "<replace>",
-        #             "relation": "has patient",
-        #             "tail": "bolt",
-        #             "tail_type": "<physical object>",
-        #         },
-        #         {
-        #             "head": "pump",
-        #             "head_type": "<physical object>",
-        #             "relation": "has part",
-        #             "tail": "bolt",
-        #             "tail_type": "<physical object>",
-        #         },
-        #     ],
-        # },
-        # {
-        #     "input": "centrifugal pump blown",
-        #     "triples": [
-        #         {
-        #             "head": "blown",
-        #             "head_type": "<failed state>",
-        #             "relation": "has patient",
-        #             "tail": "centrifugal pump",
-        #             "tail_type": "<physical object>",
-        #         },
-        #         {
-        #             "head": "centrifugal pump",
-        #             "head_type": "<physical object>",
-        #             "relation": "is a",
-        #             "tail": "pump",
-        #             "tail_type": "<physical object>",
-        #         },
-        #     ],
-        # },
-        # {
-        #     "input": "pump bolt sheared",
-        #     "triples": [
-        #         {
-        #             "head": "sheared",
-        #             "head_type": "<failed state>",
-        #             "relation": "has patient",
-        #             "tail": "bolt",
-        #             "tail_type": "<physical object>",
-        #         },
-        #         {
-        #             "head": "pump",
-        #             "head_type": "<physical object>",
-        #             "relation": "has part",
-        #             "tail": "bolt",
-        #             "tail_type": "<physical object>",
-        #         },
-        #     ],
-        # },
-        # {
-        #     "input": "technican to repair bolt",
-        #     "triples": [
-        #         {
-        #             "head": "repair",
-        #             "head_type": "<repair>",
-        #             "relation": "has patient",
-        #             "tail": "bolt",
-        #             "tail_type": "<physical object>",
-        #         },
-        #         {
-        #             "head": "repair",
-        #             "head_type": "<repair>",
-        #             "relation": "has agent",
-        #             "tail": "technician",
-        #             "tail_type": "<physical object>",
-        #         },
-        #     ],
-        # },
-    ]
-
-    create_populate_onto(
-        name=ONTOLOGY_NAME, onto=onto, triplets=TEST_TRIPLETS, docs=TEST_DOCS
-    )
-
-
-def create_gold_annotated_ontology(limit: int = None):
-    """Creates ontology classes and populates from gold MaintIE annotations. This provides a deeper hierarchical classification than automatic processes (ATM)
-
-    Params
-    ------
-    limit : number of documents to use to create the onto.
-    """
-
-    ONTOLOGY_NAME = f"maintkb_gold.owl"
+def create_ontology_from_annotations(limit: int = None):
+    ONTOLOGY_NAME = f"./outputs/maintie_gold.owl"
     onto = get_ontology(f"file://{ONTOLOGY_NAME}")
 
     # Convert .json entity/relation format to triple format
-    with open(r"D:\Repos\maintnet\data\maintie\gold_release_v0.json", "r") as f:
+    with open("./inputs/gold_release_v0.json", "r") as f:
         mwo_gold = json.load(f)
 
     def convert_format(input_string, include_brackets: bool = True):
@@ -854,8 +649,5 @@ def create_gold_annotated_ontology(limit: int = None):
 
 
 if __name__ == "__main__":
-    # create_test_ontology()
-    create_gold_annotated_ontology()    # limit=50
-    # create_maintkb_ontology()
-
+    create_ontology('maintie_gold')
     #   sync_reasoner(infer_property_values = True)
