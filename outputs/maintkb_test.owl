@@ -3,10 +3,10 @@
          xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
          xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
          xmlns:owl="http://www.w3.org/2002/07/owl#"
-         xml:base="file://maintkb_test.owl"
-         xmlns="file://maintkb_test.owl#">
+         xml:base="file://./outputs/maintkb_test.owl"
+         xmlns="file://./outputs/maintkb_test.owl#">
 
-<owl:Ontology rdf:about="file://maintkb_test.owl"/>
+<owl:Ontology rdf:about="file://./outputs/maintkb_test.owl"/>
 
 <owl:ObjectProperty rdf:about="#has_part">
   <rdfs:domain rdf:resource="#PhysicalObject"/>
@@ -18,6 +18,22 @@
   <rdfs:domain rdf:resource="#PhysicalObject"/>
   <rdfs:range rdf:resource="#PhysicalObject"/>
   <owl:inverseOf rdf:resource="#has_part"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#has_agent">
+  <owl:inverseOf rdf:resource="#is_agent_of"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#is_agent_of">
+  <owl:inverseOf rdf:resource="#has_agent"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#has_patient">
+  <owl:inverseOf rdf:resource="#is_patient_of"/>
+</owl:ObjectProperty>
+
+<owl:ObjectProperty rdf:about="#is_patient_of">
+  <owl:inverseOf rdf:resource="#has_patient"/>
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#contains">
@@ -44,80 +60,8 @@
   <owl:inverseOf rdf:resource="#has_property"/>
 </owl:ObjectProperty>
 
-<owl:ObjectProperty rdf:about="#has_agent">
-  <owl:inverseOf rdf:resource="#is_agent_of"/>
-</owl:ObjectProperty>
-
-<owl:ObjectProperty rdf:about="#is_agent_of">
-  <owl:inverseOf rdf:resource="#has_agent"/>
-</owl:ObjectProperty>
-
-<owl:ObjectProperty rdf:about="#has_patient">
-  <owl:inverseOf rdf:resource="#is_patient_of"/>
-</owl:ObjectProperty>
-
-<owl:ObjectProperty rdf:about="#is_patient_of">
-  <owl:inverseOf rdf:resource="#has_patient"/>
-</owl:ObjectProperty>
-
 <owl:Class rdf:about="#PhysicalObject">
   <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Property">
-  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
-</owl:Class>
-
-<owl:Class rdf:about="#State">
-  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Activity">
-  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Process">
-  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
-</owl:Class>
-
-<owl:Class rdf:about="#MaintenanceActivity">
-  <rdfs:subClassOf rdf:resource="#Activity"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Adjust">
-  <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
-</owl:Class>
-
-<owl:Class rdf:about="#SupportingActivity">
-  <rdfs:subClassOf rdf:resource="#Activity"/>
-</owl:Class>
-
-<owl:Class rdf:about="#DesirableState">
-  <rdfs:subClassOf rdf:resource="#State"/>
-</owl:Class>
-
-<owl:Class rdf:about="#NormalState">
-  <rdfs:subClassOf rdf:resource="#DesirableState"/>
-</owl:Class>
-
-<owl:Class rdf:about="#UndesirableState">
-  <rdfs:subClassOf rdf:resource="#State"/>
-</owl:Class>
-
-<owl:Class rdf:about="#DegradedState">
-  <rdfs:subClassOf rdf:resource="#UndesirableState"/>
-</owl:Class>
-
-<owl:Class rdf:about="#FailedState">
-  <rdfs:subClassOf rdf:resource="#UndesirableState"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Replace">
-  <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
-</owl:Class>
-
-<owl:Class rdf:about="#Repair">
-  <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Substance">
@@ -888,6 +832,18 @@
   <rdfs:subClassOf rdf:resource="#InterfacingObject"/>
 </owl:Class>
 
+<owl:Class rdf:about="#Activity">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#MaintenanceActivity">
+  <rdfs:subClassOf rdf:resource="#Activity"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Adjust">
+  <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
+</owl:Class>
+
 <owl:Class rdf:about="#Calibrate">
   <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
 </owl:Class>
@@ -900,8 +856,20 @@
   <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
 </owl:Class>
 
+<owl:Class rdf:about="#Replace">
+  <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Repair">
+  <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
+</owl:Class>
+
 <owl:Class rdf:about="#Service">
   <rdfs:subClassOf rdf:resource="#MaintenanceActivity"/>
+</owl:Class>
+
+<owl:Class rdf:about="#SupportingActivity">
+  <rdfs:subClassOf rdf:resource="#Activity"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Admin">
@@ -940,6 +908,38 @@
   <rdfs:subClassOf rdf:resource="#SupportingActivity"/>
 </owl:Class>
 
+<owl:Class rdf:about="#State">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
+<owl:Class rdf:about="#DesirableState">
+  <rdfs:subClassOf rdf:resource="#State"/>
+</owl:Class>
+
+<owl:Class rdf:about="#NormalState">
+  <rdfs:subClassOf rdf:resource="#DesirableState"/>
+</owl:Class>
+
+<owl:Class rdf:about="#UndesirableState">
+  <rdfs:subClassOf rdf:resource="#State"/>
+</owl:Class>
+
+<owl:Class rdf:about="#IndeterminateState">
+  <rdfs:subClassOf rdf:resource="#UndesirableState"/>
+</owl:Class>
+
+<owl:Class rdf:about="#DegradedState">
+  <rdfs:subClassOf rdf:resource="#UndesirableState"/>
+</owl:Class>
+
+<owl:Class rdf:about="#FailedState">
+  <rdfs:subClassOf rdf:resource="#UndesirableState"/>
+</owl:Class>
+
+<owl:Class rdf:about="#Process">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
 <owl:Class rdf:about="#DesirableProcess">
   <rdfs:subClassOf rdf:resource="#Process"/>
 </owl:Class>
@@ -948,16 +948,16 @@
   <rdfs:subClassOf rdf:resource="#Process"/>
 </owl:Class>
 
+<owl:Class rdf:about="#Property">
+  <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
+</owl:Class>
+
 <owl:Class rdf:about="#DesirableProperty">
   <rdfs:subClassOf rdf:resource="#Property"/>
 </owl:Class>
 
 <owl:Class rdf:about="#UndesirableProperty">
   <rdfs:subClassOf rdf:resource="#Property"/>
-</owl:Class>
-
-<owl:Class rdf:about="#IndeterminateState">
-  <rdfs:subClassOf rdf:resource="#UndesirableState"/>
 </owl:Class>
 
 <owl:Class rdf:about="#ReplaceIndeterminateState">
@@ -973,13 +973,13 @@
   <rdfs:subClassOf rdf:resource="#IndeterminateState"/>
 </owl:Class>
 
-<owl:NamedIndividual rdf:about="#UBHVD16A">
+<owl:NamedIndividual rdf:about="#PW9CDOFD">
   <rdf:type rdf:resource="#Requires"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0_requires</rdfs:label>
   <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">pump requires replacing</rdfs:comment>
 </owl:NamedIndividual>
 
-<owl:NamedIndividual rdf:about="#72OYAH1T">
+<owl:NamedIndividual rdf:about="#IBR3LADC">
   <rdf:type rdf:resource="#Requires"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">0_requires</rdfs:label>
   <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string">pump requires replacing</rdfs:comment>

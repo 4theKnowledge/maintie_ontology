@@ -1,3 +1,0 @@
-head|head_type|relation|tail|tail_type|frequency
-torque converter|<physical object>|has part|shaft|<physical object>|1
-shaft|<physical object>|part of|torque converter|<physical object>|1
